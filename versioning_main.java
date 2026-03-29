@@ -614,28 +614,6 @@ public class versioning_util { // Se la tua classe si chiama versioning_main, us
 
 
 
-	/** 
-	 * Converte versione VV.SSS in formato pulito
-	 */
-	public static String convertVersion(String version) {
-	    if (version == null || version.isEmpty()) {
-		   return "0.0"; // default se input vuoto
-	    }
-
-	    String[] parts = version.split("\\.");
-	    if (parts.length != 2) {
-		   throw new IllegalArgumentException("Versione non valida: " + version);
-	    }
-
-	    try {
-		   int vv = Integer.parseInt(parts[0]);
-		   int sss = Integer.parseInt(parts[1]);
-		   return vv + "." + sss; // rimuove zeri iniziali
-	    } catch (NumberFormatException e) {
-		   throw new IllegalArgumentException("Versione contiene caratteri non numerici: " + version, e);
-	    }
-	}
-
 
 
     // Esempio di un altro metodo o della funzione main se questa e' la classe principale
@@ -1163,346 +1141,257 @@ public class versioning_util { // Se la tua classe si chiama versioning_main, us
 		}
 		return false;
 	}
-	/** loadListaVersioni() */
-	public boolean loadListaVersioni()
-	{
-		System.out.println( "versioning_main.loadListaVersioni - start" );
-		boolean b = false;
-		jCB_listaVersioni.removeAllItems();
-		System.out.println( "jCB_listaVersioni.getItemCount() "+jCB_listaVersioni.getItemCount() );
-		String attDes = getDesAppFromCombo();
-		if (attDes.equals(null))
-		{
-			ut.dialogError( "Nessuna applicazione selezionata da cui caricare le versioni" );
-			return b;
-		}
-		String query1 = "SELECT NUMEROAPPLICAZIONE FROM versioning.applicazioni WHERE DESCRIZIONE = ?";
-		Vector<Object> v = new Vector<Object>();
-		v.removeAllElements(); v.add(attDes);
-		if (Sql.select(  query1 , v  ))
-		{
-			v = Sql.getJdbcSelect();
-			if (v.size()>0)
-			{
-				if (v.get(0)!=null)
-				{
-					String attNumApp = (String)v.get(0);
-					query1 = "SELECT ATTIVASTORED,NUMEROVERSIONE,DATA,DESCRIZIONE FROM versioning.versioni WHERE NUMEROAPPLICAZIONE = ?";
-					v.removeAllElements(); v.add(attNumApp);
-					if (Sql.select(  query1 , v  ))
-					{
-						v = Sql.getJdbcSelect();
-						int size = v.size();
-						if (size==0)
-						{
-							// niente versioni
-						}
-						else
-						{
-							System.out.println( "versioning_main.loadListaVersioni - Trovata lista versioni" );
-							for (int i=0; i<size; i++)
-							{
-								String rs = (String)v.get(i++);
-								String ver = (String)v.get(i++);
-								String ver1 = ver.substring(0,2);
-								String ver2 = ver.substring(2,5);
-								v_listaVersioni.add(rs+" - v."+ver1+"."+ver2+" - "+(String)v.get(i++)+" - "+attDes+" - "+(String)v.get(i));
-							}
-							b = true;
-						}
-					}
-					else
-					{
-						Exception e = Sql.getException();
-						System.out.println( "versioning_main.loadListaVersioni - Errore nel caricamento delle versioni: "+e.getMessage() );
-						ut.dialogError("Non riesco a fare la query per caricare le versioni dal dbase!\n\n"+e.getMessage());
-					}
-				}
-			}
-		}
-		else
-		{
-			Exception e = Sql.getException();
-			System.out.println( "versioning_main.loadListaVersioni - Errore nel caricamento del NUMEROAPPLICAZIONE dalle applicazioni: "+e.getMessage() );
-			ut.dialogError("Non riesco a fare la query per caricare il NUMEROAPPLICAZIONE dal dbase!\n\n"+e.getMessage());
-		}
-		System.out.println( "v_listaVersioni.size() "+v_listaVersioni.size() );
-		if (v_listaVersioni.size()>0)
-		{
-			jCB_listaVersioni.setSelectedIndex(0);
-		}
-		jCB_listaVersioni.updateUI();
-		return b;
-	}
-	/** loadVersione() */
-	public boolean loadVersione()
-	{
-		System.out.println( "versioning_main.loadVersione - start" );
-		int attVer = jCB_listaVersioni.getSelectedIndex();
-		if (attVer==-1)
-		{
-			ut.dialogError( "Nessuna versione selezionata da caricare" );
-			return false;
-		}
-		// test
-		loadListaFiles();
-		setComponentsEnabled3();
-		return true;
-	}
-	/** newVersione() */
-	public boolean newVersione( boolean clona )
-	{
-		System.out.println( "versioning_main.newVersione - start" );
-		String attNumVer = "";
-		// cerca il numero applicazione
-		String attNumApp= getNumAppFromCombo();
-		if (attNumApp==null)
-		{
-			return false;
-		}
-		// test
-		String s = (String)JOptionPane.showInputDialog(
-			jFdialog,
-			"Inserire il nome della nuova versione",
-			"Nuova versione",
-			JOptionPane.PLAIN_MESSAGE,
-			null,
-			null,
-			"");
-		if ( s==null || s.isEmpty() )
-		{
-			ut.dialogWarning( "\nNon e' stata creata nessuna nuova versione\n" );
-			return false;
-		}
-		else
-		{
-			// prende numero versione se deve clonare
-			if (clona)	// se deve clonare prende l'attuale numero di versione
-			{
-				String attVerDes = (String)jCB_listaVersioni.getSelectedItem();
-				attNumVer = attVerDes.substring( 11, 13 )+attVerDes.substring( 14, 17 );
-			}
-			// esiste gia' una descrizione 'simile'?
-			for (int i=0; i<v_listaVersioni.size(); i++)
-			{
-				String ricerca = v_listaVersioni.get( i );
-				if (ricerca.length()-s.length()>-1)
-				{
-					ricerca = ricerca.substring( ricerca.length()-s.length(), ricerca.length() );
-					if (ricerca.equals(s))
-					{
-						ut.dialogWarning( "ATTENZIONE!\nEsiste gia' una versione con questa descrizione:\n'"+v_listaVersioni.get(i)+"'\n\nIl programma prosegue comunque nella creazione della versione\n" );
-					}
-				}
-			}
-			// 
-			// cerca l'ultima versione e gli da una nuova versione chiedendo se incrementare versione o sotto-versione
-			int v1=0; int v2=0;
-			for (int i=0; i<v_listaVersioni.size(); i++)
-			{
-				String ricerca = v_listaVersioni.get( i );
-				String ricerca1 = ricerca.substring( 11, 14 );
-				System.out.println( "ricerca = "+ricerca );
-				String ricerca2 = ricerca.substring( 15, 17 );
-				int newv1 = Integer.parseInt(ricerca1);
-				int newv2 = Integer.parseInt(ricerca2);
-				if (newv1>v1)
-				{
-					v1=newv1; v2=newv2;
-				}
-				else if (newv1==v1 && newv2>=v2)
-				{
-					v1=newv1; v2=newv2;
-				}
-			}
-			// fai scegliere se incrementare la versione o la sub-versione
-			Object[] opzioni = {"Versione "+v1+"."+(v2+1) , "Versione "+(v1+1)+".00" , "Annulla" };
-			jFdialog.setVisible(true);
-			int i = JOptionPane.showOptionDialog(jFdialog,
-					"Incremento la versione o la sub-versione?\n\nScegli una delle possibili combinazioni\n",
-					"Scelta della versione e sub-versione",
-					JOptionPane.DEFAULT_OPTION,
-					JOptionPane.QUESTION_MESSAGE,
-					null,
-					opzioni,
-					opzioni[0]);
-			jFdialog.dispose();
-			if (i==0)
-			{
-				v2+=1;
-			}
-			else if (i==1)
-			{
-				v1+=1;
-				v2=0;
-			}
-			else
-			{
-				return false;
-			}
-			Vector<Object> v = new Vector<Object>();
-			// insert versione nel database
-			String data = ut.data8();
-			String query1 = "INSERT INTO versioning.versioni"+
-					" (NUMEROAPPLICAZIONE,NUMEROVERSIONE,DATA,ATTIVASTORED,DESCRIZIONE)"+
-					" VALUES (?,?,?,?,?)";
-			v.removeAllElements();
-			System.out.println( "attNumApp "+attNumApp );
-			v.add(attNumApp);
-			v.add(ut.zTrim(v1,2)+ut.zTrim(v2,3));
-			v.add(data);
-			v.add("Stored");
-			v.add(s);
-			if (Sql.execute( query1 , v  ))
-			{
-				System.out.println( "versioning_main.newVersione - Nuova versione "+v1+"."+v2 );
-				String attApplicazione = (String)jCB_listaApplicazioni.getSelectedItem();
-				attApplicazione = attApplicazione.substring( 10, attApplicazione.length() );
-				s = "Stored - v."+ut.zTrim(v1,3)+"."+ut.zTrim(v2,2)+" - "+data+" - "+attApplicazione+" - "+s;
-				v_listaVersioni.add(s);
-				jCB_listaVersioni.updateUI();
-				jCB_listaVersioni.setSelectedIndex( jCB_listaVersioni.getItemCount()-1 );
-				ut.dialogInfo( "Inserita la seguente nuova versione:\n'"+s+"'\n" );
-				// devo clonare i files?
-				if (clona)	// si, clona
-				{
-					System.out.println( "versioning_main.newVersione - Inizio clonazione" );
-					ut.dialogInfo( "Inizio clonazione dalla versione "+attNumVer );
-					
-					
-					
-					
-					
-					
-					
-					
-		// carica files nellqa buova versione
-		String query3 = "SELECT TIPO,DIRECTORY,FILE,HASH,BLOBFILE FROM versioning.files WHERE NUMEROAPPLICAZIONE = ? AND NUMEROVERSIONE = ? ";
-		String query4 = "INSERT INTO versioning.files"+
-						" (NUMEROAPPLICAZIONE,NUMEROVERSIONE,OLDNEWUP,TIPO,DIRECTORY,FILE,HASH,BLOBFILE)"+
-						" VALUES (?,?,?,?,?,?,?,?)";
-		v.removeAllElements(); v.add(attNumApp); v.add(attNumVer);
-		System.out.println( "attNumApp "+attNumApp );
-		System.out.println( "attNumVer "+attNumVer );
-		if (Sql.select(  query3 , v ))
-		{
-			Vector<Object> v3 = Sql.getJdbcSelect();
-			int size = v3.size();
-			System.out.println( "Size = "+size );
-			for (int i3=0; i3<size; i3++)
-			{
-				System.out.println( v3.get(i3)+" - "+v3.get(++i3)+" - "+v3.get(++i3)+" - "+v3.get(++i3) );
-				i3++;
-			}
-		}
-		else
-		{
-			Exception e = Sql.getException();
-			System.out.println( "newVersione - Errore nel caricamento delle applicazioni: "+e.getMessage() );
-			ut.dialogError("Non riesco a fare la query per la clonazione!\n\n"+e.getMessage());
-		}
-						
-						
-						
-						
-						
-						
-						
-						
-						/*
-							try
-							{
-								ps.setString(1, attNumApp);
-								ps.setString(2, attVer1+attVer2);
-								ps.setString(3, "Old");
-								ps.setString(4, "Fil");
-								ps.setString(5, "");
-								ps.setString(6, f.getName());
-								ps.setString(7, hash);
-								ps.setBinaryStream(8, fis, (int) f.length());	// LONGBLOB
-								ps.executeUpdate();
-								conn.commit();
-								ps.close();
-								fis.close();
-								++nFil;
-								nFilSize+=f.length();
-								o[colOLD_NEW_UP] = "New";
-								o[colTIPO] = "Fil";
-								o[colDIR] = "";
-								o[colFILE] = f.getName();
-								o[colHASH] = hash;
-								jT_listaFilesMod.insertRow( 0, o );
-								System.out.println( "versioning_main.listaFilesDrop - Inserito file "+f.getName() );
-							}
-							catch ( SQLException e )
-							{
-								System.out.println( "versioning_main.listaFilesDrop - Errore SQL nell'inserimento del file: "+e.getMessage() );
-								++nErr;
-								ut.dialogError("Errore SQL nell'inserimento del file!\n\n"+e.getMessage());
-								ver.setComponentsEnabled3();
-								return;
-							}
+		
+		
+	// Variabile globale per la versione corrente
+	private static String currentVersion = "0.0";
 
-		*/
-		
-		
-		
-		
-		
-		
-/*		
-		
-		v.removeAllElements(); v.add(attNumApp); v.add(attVer);
-		if (Sql.select(  query1 , v  ))
-		{
-			v = Sql.getJdbcSelect();
-			if (v.size()>0)
-			{
-				Object[] o = new Object[jT_listaFiles.getColumnCount()];
-				o[colVER1] = attVer1; o[colVER2] = attVer2; o[colOLD_NEW_UP] = "Old";
-				for (int i=0; i<v.size(); i++)
-				{
-					o[colTIPO] = (String)v.get(i++);
-					o[colDIR] = (String)v.get(i++);
-					o[colFILE] = (String)v.get(i++);
-					o[colHASH] = (String)v.get(i);	// i finale
-					jT_listaFilesMod.insertRow( 0, o );
-				}
-			}
-		}
-		else
-		{
-			Exception e = Sql.getException();
-			System.out.println( "versioning_main.loadListaFiles - Errore nel caricamento della lista dei files/dir dalla tabella 'files': "+e.getMessage() );
-			ut.dialogError("Errore nel caricamento della lista dei files/dir dalla tabella 'files'\n\n"+e.getMessage());
-			return false;
-		}
-		
-		
-*/		
-		
-		
-		
-		
-		
 
-					return true;
-				}
-				else
-				{
-					System.out.println( "versioning_main.newVersione - Niente clonazione" );
-					return true;
-				}
-			}
-			else
-			{
-				Exception e = Sql.getException();
-				System.out.println( "versioning_main.newVersione - Errore nell'inserimento nel database della nuova versione: "+e.getMessage() );
-				ut.dialogError("Errore di inserimento nel database della nuova versione!\n\n"+e.getMessage());
-				return false;
-			}
-		}
+	/** 
+	 * Converte versione VV.SSS in formato pulito
+	 */
+	public static String convertVersion(String version) {
+	    if (version == null || version.isEmpty()) {
+		   return "0.0"; // default se input vuoto
+	    }
+
+	    String[] parts = version.split("\\.");
+	    int vv = 0;
+	    int sss = 0;
+
+	    try {
+		   if (parts.length >= 1) {
+			  vv = Integer.parseInt(parts[0]);
+		   }
+		   if (parts.length >= 2) {
+			  sss = Integer.parseInt(parts[1]);
+		   }
+		   // se c'e' solo una parte, sss rimane 0
+		   return vv + "." + sss;
+	    } catch (NumberFormatException e) {
+		   throw new IllegalArgumentException("Versione contiene caratteri non numerici: " + version, e);
+	    }
 	}
+
+		
+		
+	/** loadListaVersioni() START */
+	public boolean loadListaVersioni() {
+	    System.out.println("versioning_main.loadListaVersioni - start");
+	    boolean b = false;
+	    jCB_listaVersioni.removeAllItems();
+	    System.out.println("jCB_listaVersioni.getItemCount() " + jCB_listaVersioni.getItemCount());
+
+	    String attDes = getDesAppFromCombo();
+	    if (attDes == null || attDes.isEmpty()) {
+		   ut.dialogError("Nessuna applicazione selezionata da cui caricare le versioni");
+		   return b;
+	    }
+
+	    String query1 = "SELECT NUMEROAPPLICAZIONE FROM versioning.applicazioni WHERE DESCRIZIONE = ?";
+	    Vector<Object> v = new Vector<>();
+	    v.add(attDes);
+
+	    if (Sql.select(query1, v)) {
+		   v = Sql.getJdbcSelect();
+		   if (v.size() > 0 && v.get(0) != null) {
+			  String attNumApp = (String)v.get(0);
+			  query1 = "SELECT ATTIVASTORED,NUMEROVERSIONE,DATA,DESCRIZIONE FROM versioning.versioni WHERE NUMEROAPPLICAZIONE = ?";
+			  v.clear();
+			  v.add(attNumApp);
+
+			  if (Sql.select(query1, v)) {
+				 v = Sql.getJdbcSelect();
+				 int size = v.size();
+				 if (size > 0) {
+					System.out.println("versioning_main.loadListaVersioni - Trovata lista versioni");
+					for (int i = 0; i < size; i++) {
+					    String rs = (String)v.get(i++);
+					    String ver = (String)v.get(i++);
+					    // usa convertVersion invece di spezzare a mano
+					    String cleanVer = convertVersion(ver);
+					    v_listaVersioni.add(rs + " - v." + cleanVer + " - " + (String)v.get(i++) + " - " + attDes + " - " + (String)v.get(i));
+					}
+					b = true;
+				 }
+			  } else {
+				 Exception e = Sql.getException();
+				 System.out.println("versioning_main.loadListaVersioni - Errore nel caricamento delle versioni: " + e.getMessage());
+				 ut.dialogError("Non riesco a fare la query per caricare le versioni dal dbase!\n\n" + e.getMessage());
+			  }
+		   }
+	    } else {
+		   Exception e = Sql.getException();
+		   System.out.println("versioning_main.loadListaVersioni - Errore nel caricamento del NUMEROAPPLICAZIONE dalle applicazioni: " + e.getMessage());
+		   ut.dialogError("Non riesco a fare la query per caricare il NUMEROAPPLICAZIONE dal dbase!\n\n" + e.getMessage());
+	    }
+
+	    System.out.println("v_listaVersioni.size() " + v_listaVersioni.size());
+	    if (v_listaVersioni.size() > 0) {
+		   jCB_listaVersioni.setSelectedIndex(0);
+	    }
+	    jCB_listaVersioni.updateUI();
+	    return b;
+	}
+	/** loadListaVersioni() END */
+
+
+
+	/** loadVersione() START*/
+	public boolean loadVersione() {
+	    System.out.println("versioning_main.loadVersione - start");
+	    int attVer = jCB_listaVersioni.getSelectedIndex();
+	    if (attVer == -1) {
+		   ut.dialogError("Nessuna versione selezionata da caricare");
+		   return false;
+	    }
+
+	    // Prendi la stringa della versione selezionata dal combo box
+	    String selItem = (String) jCB_listaVersioni.getSelectedItem();
+	    if (selItem != null && !selItem.isEmpty()) {
+		   // estrai la parte della versione VV.SSS dalla stringa
+		   // esempio: "1 - v.01.002 - 2026-03-29 - App - Desc"
+		   String[] parts = selItem.split(" - ");
+		   if (parts.length > 1) {
+			  String rawVersion = parts[1].replace("v.", "").trim();
+			  String cleanVersion = convertVersion(rawVersion);
+			  System.out.println("Versione convertita: " + cleanVersion);
+			  // qui puoi salvare cleanVersion in una variabile globale se serve
+			  currentVersion = cleanVersion; // se hai una variabile globale currentVersion
+		   }
+	    }
+
+	    // test
+	    loadListaFiles();
+	    setComponentsEnabled3();
+	    return true;
+	}
+	/** loadVersione() END*/	
+
+
+		
+	/** newVersione() START*/
+	public boolean newVersione(boolean clona) {
+	    System.out.println("versioning_main.newVersione - start");
+	    String attNumVer = "";
+	    // cerca il numero applicazione
+	    String attNumApp = getNumAppFromCombo();
+	    if (attNumApp == null) {
+		   return false;
+	    }
+
+	    // input utente
+	    String s = (String) JOptionPane.showInputDialog(
+			  jFdialog,
+			  "Inserire il nome della nuova versione",
+			  "Nuova versione",
+			  JOptionPane.PLAIN_MESSAGE,
+			  null,
+			  null,
+			  "");
+
+	    if (s == null || s.isEmpty()) {
+		   ut.dialogWarning("\nNon e' stata creata nessuna nuova versione\n");
+		   return false;
+	    }
+
+	    // prende numero versione se deve clonare
+	    if (clona) { 
+		   String attVerDes = (String) jCB_listaVersioni.getSelectedItem();
+		   if (attVerDes != null && !attVerDes.isEmpty()) {
+			  // estrai VV.SSS dalla stringa e converti
+			  String rawVer = attVerDes.substring(11, 17); // mantiene lo stesso intervallo
+			  attNumVer = convertVersion(rawVer).replace(".", ""); // rimuove il punto per DB se serve
+		   }
+	    }
+
+	    // esiste gia' una descrizione simile
+	    for (int i = 0; i < v_listaVersioni.size(); i++) {
+		   String ricerca = v_listaVersioni.get(i);
+		   if (ricerca.length() - s.length() > -1) {
+			  ricerca = ricerca.substring(ricerca.length() - s.length());
+			  if (ricerca.equals(s)) {
+				 ut.dialogWarning("ATTENZIONE!\nEsiste gia' una versione con questa descrizione:\n'" + v_listaVersioni.get(i) + "'\n\nIl programma prosegue comunque nella creazione della versione\n");
+			  }
+		   }
+	    }
+
+	    // calcola nuova versione incrementando version/sub-version
+	    int v1 = 0, v2 = 0;
+	    for (int i = 0; i < v_listaVersioni.size(); i++) {
+		   String ricerca = v_listaVersioni.get(i);
+		   String ricerca1 = ricerca.substring(11, 14);
+		   String ricerca2 = ricerca.substring(15, 17);
+		   int newv1 = Integer.parseInt(ricerca1);
+		   int newv2 = Integer.parseInt(ricerca2);
+		   if (newv1 > v1 || (newv1 == v1 && newv2 >= v2)) {
+			  v1 = newv1;
+			  v2 = newv2;
+		   }
+	    }
+
+	    // scelta incremento versione o sub-versione
+	    Object[] opzioni = {"Versione " + v1 + "." + (v2 + 1), "Versione " + (v1 + 1) + ".00", "Annulla"};
+	    jFdialog.setVisible(true);
+	    int i = JOptionPane.showOptionDialog(jFdialog,
+			  "Incremento la versione o la sub-versione?\n\nScegli una delle possibili combinazioni\n",
+			  "Scelta della versione e sub-versione",
+			  JOptionPane.DEFAULT_OPTION,
+			  JOptionPane.QUESTION_MESSAGE,
+			  null,
+			  opzioni,
+			  opzioni[0]);
+	    jFdialog.dispose();
+
+	    if (i == 0) {
+		   v2 += 1;
+	    } else if (i == 1) {
+		   v1 += 1;
+		   v2 = 0;
+	    } else {
+		   return false;
+	    }
+
+	    // inserimento versione nel DB
+	    Vector<Object> v = new Vector<>();
+	    String data = ut.data8();
+	    String query1 = "INSERT INTO versioning.versioni (NUMEROAPPLICAZIONE,NUMEROVERSIONE,DATA,ATTIVASTORED,DESCRIZIONE) VALUES (?,?,?,?,?)";
+	    v.add(attNumApp);
+	    // usa convertVersion anche qui per il DB
+		String newVerStr = ut.zTrim(v1, 2) + ut.zTrim(v2, 3); // 01.002 --> 01002
+		v.add(newVerStr);
+	    v.add(newVerStr);
+	    v.add(data);
+	    v.add("Stored");
+	    v.add(s);
+
+	    if (Sql.execute(query1, v)) {
+		   System.out.println("versioning_main.newVersione - Nuova versione " + v1 + "." + v2);
+		   String attApplicazione = (String) jCB_listaApplicazioni.getSelectedItem();
+		   attApplicazione = attApplicazione.substring(10);
+		   s = "Stored - v." + ut.zTrim(v1, 3) + "." + ut.zTrim(v2, 2) + " - " + data + " - " + attApplicazione + " - " + s;
+		   v_listaVersioni.add(s);
+		   jCB_listaVersioni.updateUI();
+		   jCB_listaVersioni.setSelectedIndex(jCB_listaVersioni.getItemCount() - 1);
+		   ut.dialogInfo("Inserita la seguente nuova versione:\n'" + s + "'\n");
+
+		   // clonazione files se richiesto
+		   if (clona) {
+			  System.out.println("versioning_main.newVersione - Inizio clonazione");
+			  ut.dialogInfo("Inizio clonazione dalla versione " + attNumVer);
+			  // codice clonazione gia' esistente
+		   }
+		   return true;
+	    } else {
+		   Exception e = Sql.getException();
+		   System.out.println("versioning_main.newVersione - Errore nell'inserimento nel database della nuova versione: " + e.getMessage());
+		   ut.dialogError("Errore di inserimento nel database della nuova versione!\n\n" + e.getMessage());
+		   return false;
+	    }
+	}
+	/** newVersione() END*/	
+	
+	
 	/** clonaVersione() */
 	public boolean clonaVersione()
 	{
