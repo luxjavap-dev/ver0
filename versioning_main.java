@@ -613,22 +613,29 @@ public class versioning_util { // Se la tua classe si chiama versioning_main, us
 	}
 
 
-	public static String convertVersion(String input) {
-	    if (input == null || input.isEmpty()) {
-		   throw new IllegalArgumentException("Versione vuota");
+
+	/** 
+	 * Converte versione VV.SSS in formato pulito
+	 */
+	public static String convertVersion(String version) {
+	    if (version == null || version.isEmpty()) {
+		   return "0.0"; // default se input vuoto
 	    }
 
-	    String[] parts = input.split("\\.");
-
-	    int major = Integer.parseInt(parts[0]);
-	    int minor = 0;
-
-	    if (parts.length > 1) {
-		   minor = Integer.parseInt(parts[1]);
+	    String[] parts = version.split("\\.");
+	    if (parts.length != 2) {
+		   throw new IllegalArgumentException("Versione non valida: " + version);
 	    }
 
-	    return String.format("%02d%03d", major, minor);
+	    try {
+		   int vv = Integer.parseInt(parts[0]);
+		   int sss = Integer.parseInt(parts[1]);
+		   return vv + "." + sss; // rimuove zeri iniziali
+	    } catch (NumberFormatException e) {
+		   throw new IllegalArgumentException("Versione contiene caratteri non numerici: " + version, e);
+	    }
 	}
+
 
 
     // Esempio di un altro metodo o della funzione main se questa e' la classe principale
@@ -5026,7 +5033,7 @@ class versioning_MyThread extends Thread implements versioning_constants
 						System.out.println( "versioning_main.listaFilesDrop - Errore nell'inserimento del file: "+e.getMessage() );
 						ut.dialogError("Errore nell'inserimento del file!\n\n"+e.getMessage());
 						ver.setComponentsEnabled3();
-						return false;https://github.com/luxjavap-dev/ver0/blob/main/versioning
+						return false;
 					}
 				}
 				catch ( SQLException e )
